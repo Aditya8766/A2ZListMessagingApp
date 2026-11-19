@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "A2Z Internal Messaging",
+    "slug": "a2z-internal-messaging",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -10,16 +10,39 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.a2z.internalmessaging",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "allowBackup": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "./plugins/withFinanceSms",
+        {
+          "policyReady": false
+        }
+      ]
+    ],
+    "scheme": "a2z",
+    "extra": {
+      "financeSmsPolicyReady": false,
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "04d1cfae-dbcd-4983-9592-71a4eaf0604d"
+      }
     }
   }
 }
