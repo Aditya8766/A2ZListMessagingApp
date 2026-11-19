@@ -2,6 +2,7 @@ import { useRef, useState, type ComponentRef } from 'react';
 import { Alert, Keyboard, Linking, PermissionsAndroid, Platform, Pressable, ScrollView, Share, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { smsBridge, type DeviceSms } from '../finance/native';
+import { api, type Recipient } from '../services/api';
 import { parseRecipients } from '../sms/recipients';
 
 type SmsPermission = typeof PermissionsAndroid.PERMISSIONS.READ_SMS | typeof PermissionsAndroid.PERMISSIONS.SEND_SMS;
@@ -51,6 +52,9 @@ export default function SmsScreen() {
   const [readStatus, setReadStatus] = useState<Feedback | null>(null);
   const [sendStatus, setSendStatus] = useState<Feedback | null>(null);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+  const [recipientsLoading, setRecipientsLoading] = useState(false);
+  const [recipientStatus, setRecipientStatus] = useState<Feedback | null>(null);
+  const [recipientNames, setRecipientNames] = useState<Record<string, string>>({});
   const [fieldError, setFieldError] = useState<{ field: 'phone' | 'message'; message: string } | null>(null);
   const phoneInput = useRef<ComponentRef<typeof TextInput>>(null);
   const messageInput = useRef<ComponentRef<typeof TextInput>>(null);
@@ -92,7 +96,8 @@ export default function SmsScreen() {
       for (const number of numbers) {
         const id = transactionId();
         try {
-          const confirmed = await bridge.sendDeviceSms(number, message);
+          const personalizedMessage = message.replace(/\{\{\s*name\s*\}\}/gi, recipientNames[number] ?? 'there');
+          const confirmed = await bridge.sendDeviceSms(number, personalizedMessage);
           report.push({ transactionId: id, number, status: confirmed ? 'SENT' : 'UNCONFIRMED', detail: confirmed ? 'Android confirmed submission' : 'No confirmation received' });
         } catch (error) {
           report.push({ transactionId: id, number, status: 'FAILED', detail: error instanceof Error ? error.message : 'Android rejected the request.' });
@@ -147,6 +152,22 @@ export default function SmsScreen() {
     ]);
   }
 
+  async function importRecipients() {
+    setRecipientsLoading(true);
+    setRecipientStatus(null);
+    try {
+      const imported: Recipient[] = await api.recipients();
+      setRecipients(imported.map(item => item.phoneNumber).join(', '));
+      setRecipientNames(Object.fromEntries(imported.map(item => [item.phoneNumber, item.name])));
+      setRecipientStatus({ message: `${imported.length} test recipients imported from the backend.`, success: true });
+      setFieldError(null);
+    } catch (error) {
+      setRecipientStatus({ message: error instanceof Error ? error.message : 'Could not import recipients. Start the backend and check the phone Wi-Fi.', error: true });
+    } finally {
+      setRecipientsLoading(false);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.screen}>
       <StatusBar barStyle="dark-content" />
@@ -171,7 +192,9 @@ export default function SmsScreen() {
               keyboardType="phone-pad" multiline placeholder="e.g. +91 98765 43210" placeholderTextColor="#68758a"
               value={recipients} onChangeText={value => { setRecipients(value); setFieldError(null); setSendStatus(null); }}
               style={[styles.input, fieldError?.field === 'phone' && styles.invalid]} />
-            <Text style={styles.hint}>Add up to 20 numbers, separated by commas or new lines.</Text>
+            <Text style={styles.hint}>Add up to 20 numbers. Use {'{{name}}'} to personalize imported users.</Text>
+            <Action secondary label={recipientsLoading ? 'Importing…' : 'Import recipients'} disabled={!bridge || busy || recipientsLoading} onPress={() => { void importRecipients(); }} />
+            <Status feedback={recipientStatus} />
             {fieldError?.field === 'phone' && <Status feedback={{ message: fieldError.message, error: true }} />}
             <Text style={styles.label}>Title <Text style={styles.hint}>(optional)</Text></Text>
             <TextInput accessibilityLabel="Title" editable={!!bridge && !busy} maxLength={80} value={title}

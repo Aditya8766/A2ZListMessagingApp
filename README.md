@@ -44,5 +44,29 @@ A standalone APK contains a snapshot of the code. To see UI changes on the phone
 
 ## Backend campaign status
 
-The existing gateway's `POST /api/sms/send` queues a message for one number. The APK screen works with manually entered numbers and does not consume that queue. The workspace contains no other-app user directory or marketing opt-in data. Campaign delivery to that audience requires the other app's authenticated recipient source, including opted-in phone numbers.
+The app's **Import recipients** button calls `GET /api/recipients`. The minimal development server returns these three test recipients: `9404889632`, `8698534130`, and `7875136980`. Enter `{{name}}` in the message to personalize it per imported user. SMS still leaves the phone through its SIM; the backend only supplies the recipient list.
+
+## Run both parts for USB testing
+
+Terminal 1 starts the backend:
+
+```powershell
+Set-Location C:\Projects\A2ZInternalMessagingApp\sms-gateway-server
+npm.cmd install
+npm.cmd start
+```
+
+Terminal 2 confirms the phone-facing API address and installs the APK:
+
+```powershell
+ipconfig
+Set-Location C:\Projects\A2ZInternalMessagingApp\mobile
+$env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
+$env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
+$adb = Join-Path $env:ANDROID_HOME 'platform-tools\adb.exe'
+& $adb devices
+& $adb install -r '.\android\app\build\outputs\apk\release\app-release.apk'
+```
+
+The phone and computer must use the same Wi-Fi for importing recipients. Set `src/config/api.ts` to the computer's Wi-Fi IPv4 address before building if it changed. Open the app, tap **Import recipients**, confirm the three numbers appear, type a message such as `Hello {{name}}`, then send. Keep the server terminal running.
 "# A2ZListMessagingApp" 
